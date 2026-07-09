@@ -1,0 +1,21 @@
+{
+  "name": "com.wuzupdog.updog-unity-client",
+  "version": "0.1.0",
+  "displayName": "Updog Unity Client",
+  "description": "Unity client for Updog error reporting.",
+  "unity": "2021.3",
+  "author": {
+    "name": "Wuz Updog",
+    "url": "https://wuzupdog.com"
+  },
+  "license": "MIT",
+  "keywords": [
+    "updog",
+    "errors",
+    "monitoring",
+    "logging"
+  ],
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1"
+  }
+}
