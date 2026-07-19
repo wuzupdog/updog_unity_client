@@ -1,6 +1,6 @@
 {
   "name": "com.wuzupdog.updog-unity-client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "displayName": "Updog Unity Client",
   "description": "Unity client for Updog error reporting.",
   "unity": "2021.3",
