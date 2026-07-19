@@ -17,6 +17,14 @@ namespace Updog.Unity
         public string environment;
         public string hostname;
         public string fingerprint;
+        public string event_id;
+        public string occurred_at;
+        public string service;
+        public string release;
+        public string sdk_name;
+        public string sdk_version;
+        public bool handled;
+        public string mechanism;
 
         public static UpdogNotice Create(
             string errorClass,
@@ -38,6 +46,14 @@ namespace Updog.Unity
                 context = CopyContext(context),
                 environment = config.Environment,
                 hostname = Hostname(),
+                event_id = "evt_" + Guid.NewGuid().ToString("N"),
+                occurred_at = DateTime.UtcNow.ToString("o"),
+                service = config.Service,
+                release = config.Release,
+                sdk_name = "updog_unity_client",
+                sdk_version = "0.2.0",
+                handled = true,
+                mechanism = "exception",
                 fingerprint = string.IsNullOrWhiteSpace(fingerprint)
                     ? UpdogFingerprint.Generate(errorClass, stackFrames)
                     : fingerprint

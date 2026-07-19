@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 
 namespace Updog.Unity
@@ -25,16 +26,31 @@ namespace Updog.Unity
             return reporter.Initialize(config);
         }
 
-        public static void Shutdown()
+        public static void Shutdown(float timeoutSeconds = 5f)
         {
             if (reporter == null)
             {
                 return;
             }
 
-            reporter.Shutdown();
-            UnityEngine.Object.Destroy(reporter.gameObject);
+            reporter.BeginShutdown(timeoutSeconds);
             reporter = null;
+        }
+
+        public static IEnumerator Flush(float timeoutSeconds = 5f)
+        {
+            if (reporter != null)
+            {
+                yield return reporter.Flush(timeoutSeconds);
+            }
+        }
+
+        public static UpdogDeliveryStats DeliveryStats()
+        {
+            return reporter != null ? reporter.DeliveryStats() : new UpdogDeliveryStats
+            {
+                Dropped = new Dictionary<string, long>()
+            };
         }
 
         public static void Notify(Exception exception, IDictionary<string, object> context = null)

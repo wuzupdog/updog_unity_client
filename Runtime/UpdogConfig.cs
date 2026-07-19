@@ -12,9 +12,14 @@ namespace Updog.Unity
         public string Service { get; set; }
         public string Release { get; set; }
         public bool CaptureUnityLogs { get; set; } = true;
-        public int MaxQueueSize { get; set; } = 50;
-        public float FlushIntervalSeconds { get; set; } = 30f;
+        public int MaxQueueSize { get; set; } = 2048;
+        public int MaxQueueBytes { get; set; } = 8 * 1024 * 1024;
+        public int MaxRecordBytes { get; set; } = 64 * 1024;
+        public int MaxBatchSize { get; set; } = 512;
+        public int MaxBatchBytes { get; set; } = 512 * 1024;
+        public float FlushIntervalSeconds { get; set; } = 5f;
         public int TimeoutSeconds { get; set; } = 5;
+        public int MaxRetries { get; set; } = 3;
         public Func<IDictionary<string, object>> ContextProvider { get; set; }
 
         public static UpdogConfig FromEnvironment()
@@ -31,9 +36,14 @@ namespace Updog.Unity
             Environment = FirstNonEmpty(Environment, GetEnvironmentVariable("UPDOG_ENVIRONMENT"), Application.isEditor ? "development" : "production");
             Service = FirstNonEmpty(Service, Application.productName, "unity");
             Release = FirstNonEmpty(Release, Application.version);
-            MaxQueueSize = MaxQueueSize > 0 ? MaxQueueSize : 50;
-            FlushIntervalSeconds = FlushIntervalSeconds > 0 ? FlushIntervalSeconds : 30f;
+            MaxQueueSize = MaxQueueSize > 0 ? MaxQueueSize : 2048;
+            MaxQueueBytes = MaxQueueBytes > 0 ? MaxQueueBytes : 8 * 1024 * 1024;
+            MaxRecordBytes = MaxRecordBytes > 0 ? MaxRecordBytes : 64 * 1024;
+            MaxBatchSize = MaxBatchSize > 0 ? MaxBatchSize : 512;
+            MaxBatchBytes = MaxBatchBytes > 0 ? MaxBatchBytes : 512 * 1024;
+            FlushIntervalSeconds = FlushIntervalSeconds > 0 ? FlushIntervalSeconds : 5f;
             TimeoutSeconds = TimeoutSeconds > 0 ? TimeoutSeconds : 5;
+            MaxRetries = MaxRetries >= 0 ? MaxRetries : 3;
         }
 
         internal bool IsEnabled()
