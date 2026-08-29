@@ -1,8 +1,8 @@
 {
   "name": "com.wuzupdog.updog-unity-client",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "displayName": "Updog Unity Client",
-  "description": "Unity client for Updog error reporting.",
+  "description": "Unity client for Updog error reporting and local host-agent metrics.",
   "unity": "2021.3",
   "author": {
     "name": "Wuz Updog",
@@ -13,7 +13,8 @@
     "updog",
     "errors",
     "monitoring",
-    "logging"
+    "logging",
+    "metrics"
   ],
   "dependencies": {
     "com.unity.nuget.newtonsoft-json": "3.2.1"

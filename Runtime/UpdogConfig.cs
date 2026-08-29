@@ -11,6 +11,7 @@ namespace Updog.Unity
         public string Environment { get; set; }
         public string Service { get; set; }
         public string Release { get; set; }
+        public string StatsdEndpoint { get; set; }
         public bool CaptureUnityLogs { get; set; } = true;
         public int MaxQueueSize { get; set; } = 2048;
         public int MaxQueueBytes { get; set; } = 8 * 1024 * 1024;
@@ -34,8 +35,9 @@ namespace Updog.Unity
             ApiKey = FirstNonEmpty(ApiKey, GetEnvironmentVariable("UPDOG_API_KEY"));
             Endpoint = FirstNonEmpty(Endpoint, GetEnvironmentVariable("UPDOG_ENDPOINT"), "https://wuzupdog.com");
             Environment = FirstNonEmpty(Environment, GetEnvironmentVariable("UPDOG_ENVIRONMENT"), Application.isEditor ? "development" : "production");
-            Service = FirstNonEmpty(Service, Application.productName, "unity");
-            Release = FirstNonEmpty(Release, Application.version);
+            Service = FirstNonEmpty(Service, GetEnvironmentVariable("UPDOG_SERVICE"), Application.productName, "unity");
+            Release = FirstNonEmpty(Release, GetEnvironmentVariable("UPDOG_RELEASE"), Application.version);
+            StatsdEndpoint = FirstNonEmpty(StatsdEndpoint, GetEnvironmentVariable("UPDOG_STATSD_ENDPOINT"));
             MaxQueueSize = MaxQueueSize > 0 ? MaxQueueSize : 2048;
             MaxQueueBytes = MaxQueueBytes > 0 ? MaxQueueBytes : 8 * 1024 * 1024;
             MaxRecordBytes = MaxRecordBytes > 0 ? MaxRecordBytes : 64 * 1024;
@@ -50,8 +52,12 @@ namespace Updog.Unity
         {
             return !IsTruthy(GetEnvironmentVariable("UPDOG_DISABLED")) &&
                    !IsFalsey(GetEnvironmentVariable("UPDOG_ENABLED")) &&
-                   !string.IsNullOrWhiteSpace(ApiKey);
+                   (CanSendErrors() || CanSendMetrics());
         }
+
+        internal bool CanSendErrors() => !string.IsNullOrWhiteSpace(ApiKey);
+
+        internal bool CanSendMetrics() => !string.IsNullOrWhiteSpace(StatsdEndpoint);
 
         internal string NormalizedEndpoint()
         {

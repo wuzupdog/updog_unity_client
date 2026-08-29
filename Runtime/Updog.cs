@@ -81,5 +81,20 @@ namespace Updog.Unity
 
             reporter.NotifyError(errorClass, message, stackTrace, context, fingerprint);
         }
+
+        public static void ReportMetric(
+            string name,
+            double value,
+            string type = "gauge",
+            string unit = null,
+            IDictionary<string, string> tags = null)
+        {
+            if (reporter == null || string.IsNullOrWhiteSpace(name))
+            {
+                return;
+            }
+
+            reporter.ReportMetric(name, value, type, unit, tags);
+        }
     }
 }

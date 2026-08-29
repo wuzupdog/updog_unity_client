@@ -15,14 +15,24 @@ namespace Updog.Unity
             public int Bytes;
         }
 
+        private sealed class MetricQueueEntry
+        {
+            public UpdogMetric Metric;
+            public int Bytes;
+        }
+
         private readonly List<QueueEntry> queue = new List<QueueEntry>();
+        private readonly List<MetricQueueEntry> metricQueue = new List<MetricQueueEntry>();
         private readonly Dictionary<string, long> dropped = new Dictionary<string, long>();
         private UpdogConfig config;
         private UpdogHttpClient httpClient;
+        private UpdogStatsdClient statsdClient;
         private float lastFlushTime;
+        private float lastMetricFlushTime;
         private bool isFlushing;
         private bool isSubscribed;
         private int queueBytes;
+        private int metricQueueBytes;
         private int inFlightCount;
         private long queuedCount;
         private long sentCount;
@@ -38,26 +48,49 @@ namespace Updog.Unity
             if (!config.IsEnabled())
             {
                 StopCapture();
-                Debug.LogWarning("[Updog] Disabled. Set UPDOG_API_KEY to send errors to Updog.");
+                statsdClient?.Dispose();
+                statsdClient = null;
+                httpClient = null;
+                Debug.LogWarning("[Updog] Disabled. Configure UPDOG_API_KEY for errors or UPDOG_STATSD_ENDPOINT for metrics.");
                 return false;
             }
 
-            httpClient = new UpdogHttpClient(config);
+            httpClient = config.CanSendErrors() ? new UpdogHttpClient(config) : null;
+            statsdClient?.Dispose();
+            statsdClient = null;
+            if (config.CanSendMetrics())
+            {
+                try
+                {
+                    statsdClient = new UpdogStatsdClient(config.StatsdEndpoint);
+                }
+                catch
+                {
+                    statsdClient = null;
+                }
+            }
+            if (httpClient == null && statsdClient == null)
+            {
+                StopCapture();
+                Debug.LogWarning("[Updog] Disabled because no telemetry transport could be initialized.");
+                return false;
+            }
             lastFlushTime = Time.realtimeSinceStartup;
+            lastMetricFlushTime = lastFlushTime;
             IsInitialized = true;
 
-            if (config.CaptureUnityLogs && !isSubscribed)
+            if (config.CanSendErrors() && config.CaptureUnityLogs && !isSubscribed)
             {
                 Application.logMessageReceived += OnLogMessageReceived;
                 isSubscribed = true;
             }
-            else if (!config.CaptureUnityLogs && isSubscribed)
+            else if ((!config.CanSendErrors() || !config.CaptureUnityLogs) && isSubscribed)
             {
                 Application.logMessageReceived -= OnLogMessageReceived;
                 isSubscribed = false;
             }
 
-            Debug.Log($"[Updog] Initialized - Endpoint: {config.NormalizedEndpoint()}, Environment: {config.Environment}");
+            Debug.Log($"[Updog] Initialized - Endpoint: {config.NormalizedEndpoint()}, Environment: {config.Environment}, StatsD: {config.StatsdEndpoint ?? "disabled"}");
             return true;
         }
 
@@ -85,6 +118,8 @@ namespace Updog.Unity
 
                 yield return null;
             }
+
+            FlushMetrics();
         }
 
         public UpdogDeliveryStats DeliveryStats()
@@ -95,8 +130,8 @@ namespace Updog.Unity
                 Sent = sentCount,
                 Retried = retryCount,
                 Dropped = new Dictionary<string, long>(dropped),
-                QueueRecords = queue.Count,
-                QueueBytes = queueBytes,
+                QueueRecords = queue.Count + metricQueue.Count,
+                QueueBytes = queueBytes + metricQueueBytes,
                 InFlight = inFlightCount
             };
         }
@@ -108,7 +143,7 @@ namespace Updog.Unity
             IDictionary<string, object> context = null,
             string fingerprint = null)
         {
-            if (!IsInitialized)
+            if (!IsInitialized || !config.CanSendErrors())
             {
                 return;
             }
@@ -127,6 +162,21 @@ namespace Updog.Unity
             Enqueue(notice);
         }
 
+        public void ReportMetric(
+            string name,
+            double value,
+            string type,
+            string unit,
+            IDictionary<string, string> tags)
+        {
+            if (!IsInitialized || statsdClient == null || string.IsNullOrWhiteSpace(name))
+            {
+                return;
+            }
+
+            EnqueueMetric(UpdogMetric.Create(name, value, type, unit, tags, config));
+        }
+
         private void Update()
         {
             if (IsInitialized && !isFlushing && queue.Count > 0 &&
@@ -134,11 +184,19 @@ namespace Updog.Unity
             {
                 StartCoroutine(FlushQueue());
             }
+
+            if (IsInitialized && metricQueue.Count > 0 &&
+                Time.realtimeSinceStartup - lastMetricFlushTime >= config.FlushIntervalSeconds)
+            {
+                FlushMetrics();
+            }
         }
 
         private void OnDestroy()
         {
             StopCapture();
+            statsdClient?.Dispose();
+            statsdClient = null;
             DropQueued("shutdown_timeout");
         }
 
@@ -189,7 +247,15 @@ namespace Updog.Unity
                 return;
             }
 
-            if (queue.Count >= config.MaxQueueSize || queueBytes + bytes > config.MaxQueueBytes)
+            while (!HasRoom(bytes) && metricQueue.Count > 0)
+            {
+                var removed = metricQueue[0];
+                metricQueue.RemoveAt(0);
+                metricQueueBytes -= removed.Bytes;
+                IncrementDrop("evicted_for_priority");
+            }
+
+            if (!HasRoom(bytes))
             {
                 IncrementDrop("queue_full");
                 return;
@@ -203,6 +269,75 @@ namespace Updog.Unity
             {
                 StartCoroutine(FlushQueue());
             }
+        }
+
+        private void EnqueueMetric(UpdogMetric metric)
+        {
+            int bytes;
+            try
+            {
+                bytes = Encoding.UTF8.GetByteCount(metric.ToStatsd());
+            }
+            catch
+            {
+                IncrementDrop("encoding_error");
+                return;
+            }
+
+            if (bytes > config.MaxRecordBytes)
+            {
+                IncrementDrop("record_too_large");
+                return;
+            }
+
+            if (!HasRoom(bytes))
+            {
+                IncrementDrop("queue_full");
+                return;
+            }
+
+            metricQueue.Add(new MetricQueueEntry { Metric = metric, Bytes = bytes });
+            metricQueueBytes += bytes;
+            queuedCount++;
+
+            if (metricQueue.Count >= config.MaxBatchSize || metricQueueBytes >= config.MaxBatchBytes)
+            {
+                lastMetricFlushTime = Time.realtimeSinceStartup - config.FlushIntervalSeconds;
+            }
+        }
+
+        private bool HasRoom(int bytes)
+        {
+            return queue.Count + metricQueue.Count < config.MaxQueueSize &&
+                   queueBytes + metricQueueBytes + bytes <= config.MaxQueueBytes;
+        }
+
+        private void FlushMetrics()
+        {
+            if (statsdClient == null || metricQueue.Count == 0)
+            {
+                return;
+            }
+
+            var pending = new List<MetricQueueEntry>(metricQueue);
+            metricQueue.Clear();
+            metricQueueBytes = 0;
+            inFlightCount += pending.Count;
+
+            foreach (var entry in pending)
+            {
+                if (statsdClient.Send(entry.Metric))
+                {
+                    sentCount++;
+                }
+                else
+                {
+                    IncrementDrop("statsd_send_failed");
+                }
+            }
+
+            inFlightCount -= pending.Count;
+            lastMetricFlushTime = Time.realtimeSinceStartup;
         }
 
         private IEnumerator FlushQueue()
@@ -275,6 +410,7 @@ namespace Updog.Unity
         private IEnumerator FlushAndDestroy(float timeoutSeconds)
         {
             yield return Flush(timeoutSeconds);
+            FlushMetrics();
             DropQueued("shutdown_timeout");
             Destroy(gameObject);
         }
@@ -297,6 +433,13 @@ namespace Updog.Unity
                 IncrementDrop(reason, queue.Count);
                 queue.Clear();
                 queueBytes = 0;
+            }
+
+            if (metricQueue.Count > 0)
+            {
+                IncrementDrop(reason, metricQueue.Count);
+                metricQueue.Clear();
+                metricQueueBytes = 0;
             }
         }
 

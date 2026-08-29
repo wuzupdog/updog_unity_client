@@ -1,6 +1,6 @@
 # updog_unity_client
 
-Unity client for [Updog](https://wuzupdog.com) error reporting.
+Unity client for [Updog](https://wuzupdog.com) error reporting and custom metrics.
 
 This package is intentionally opt-in. It does not auto-start from a player
 client. Call `Updog.Initialize(...)` only from the Unity process that should
@@ -33,6 +33,7 @@ Updog.Initialize(new UpdogConfig
     Environment = "production",
     Service = "world-server",
     Release = "1.2.3",
+    StatsdEndpoint = "127.0.0.1:8125",
     ContextProvider = () => new Dictionary<string, object>
     {
         ["server_short_name"] = "live",
@@ -46,8 +47,9 @@ Updog.Initialize(new UpdogConfig
 | `ApiKey` | `UPDOG_API_KEY` | Your Updog project API key |
 | `Endpoint` | `https://wuzupdog.com` | Updog server URL |
 | `Environment` | `UPDOG_ENVIRONMENT` or `production` | Environment name |
-| `Service` | `Application.productName` | Service/process name |
-| `Release` | `Application.version` | Release/build version |
+| `Service` | `UPDOG_SERVICE` or `Application.productName` | Service/process name |
+| `Release` | `UPDOG_RELEASE` or `Application.version` | Release/build version |
+| `StatsdEndpoint` | `UPDOG_STATSD_ENDPOINT` or disabled | Local Updog host-agent StatsD endpoint |
 | `CaptureUnityLogs` | `true` | Capture `LogType.Error`, `Exception`, and `Assert` |
 | `MaxQueueSize` | `2048` | Maximum pending notices kept in memory |
 | `MaxQueueBytes` | `8 MiB` | Maximum encoded queue memory |
@@ -64,6 +66,9 @@ The following environment variables are also recognized:
 - `UPDOG_API_KEY`
 - `UPDOG_ENDPOINT`
 - `UPDOG_ENVIRONMENT`
+- `UPDOG_SERVICE`
+- `UPDOG_RELEASE`
+- `UPDOG_STATSD_ENDPOINT`
 - `UPDOG_ENABLED=false`
 - `UPDOG_DISABLED=true`
 
@@ -87,6 +92,21 @@ catch (Exception ex)
 
 Capture is fire-and-forget: `Notify` only serializes and adds the notice to a bounded in-memory queue on the Unity main thread. A single coroutine bulk-submits notices, so there is at most one in-flight error request. Full queues and oversized notices are dropped rather than blocking or growing memory without limit; no disk spool is enabled by default.
 
+## Custom metrics through the host agent
+
+Run [`updog-agent`](https://github.com/wuzupdog/updog_agent) on the server and set `UPDOG_STATSD_ENDPOINT=127.0.0.1:8125`. The Unity process sends local UDP metrics to that agent, while the project ingestion key stays only in the agent's root-readable systemd environment file.
+
+```csharp
+Updog.ReportMetric(
+    "zone.players",
+    350,
+    tags: new Dictionary<string, string> { ["zone"] = "night-harbor" });
+
+Updog.ReportMetric("zone.tick", 43, type: "timer", unit: "ms");
+```
+
+Metrics share the bounded in-memory queue limits with errors but have lower priority. They are emitted as tagged StatsD gauges, counters, or timers to the configured local agent; Unity does not perform metric HTTP requests or need an ingestion key when only metrics are enabled.
+
 Network failures, `408`, `429`, and `5xx` are retried three times with full-jitter exponential backoff. The client honors `Retry-After`, preserves the request ID across retries, splits a batch after `413`, and does not retry permanent client errors.
 
 Use a bounded coroutine flush before ending a short-lived session:
@@ -103,4 +123,5 @@ Updog.Shutdown(5f);
 
 For a combined client/server Unity project, put `Updog.Initialize(...)` in the
 server entry points only. Do not initialize it from player-client scenes or
-client-only assemblies, and do not ship an Updog API key in client builds.
+client-only assemblies. Do not ship an Updog API key or configure a StatsD
+endpoint in end-user client builds.
