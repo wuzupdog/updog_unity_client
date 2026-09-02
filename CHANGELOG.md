@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+- Make the runtime assembly opt-in so projects can reference Updog only from server assemblies.
+
 ## 0.3.1
 
 - Add the Unity `.meta` files required for Git-installed packages to import the runtime and test assemblies.
