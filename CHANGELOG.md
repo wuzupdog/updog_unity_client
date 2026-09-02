@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1
+
+- Add the Unity `.meta` files required for Git-installed packages to import the runtime and test assemblies.
+- Declare the built-in Unity Web Request module used by the HTTP error reporter.
+
 ## 0.3.0
 
 - Add bounded custom metric reporting through a local Updog host agent's StatsD listener.
