@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3
+
+- Add global hostname configuration through `Hostname` or `UPDOG_HOSTNAME`.
+
 ## 0.3.2
 
 - Make the runtime assembly opt-in so projects can reference Updog only from server assemblies.

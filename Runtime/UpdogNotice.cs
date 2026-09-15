@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Net;
 using UnityEngine;
 
 namespace Updog.Unity
@@ -45,13 +44,13 @@ namespace Updog.Unity
                 request = new Dictionary<string, object>(),
                 context = CopyContext(context),
                 environment = config.Environment,
-                hostname = Hostname(),
+                hostname = config.ResolveHostname(),
                 event_id = "evt_" + Guid.NewGuid().ToString("N"),
                 occurred_at = DateTime.UtcNow.ToString("o"),
                 service = config.Service,
                 release = config.Release,
                 sdk_name = "updog_unity_client",
-                sdk_version = "0.2.0",
+                sdk_version = "0.3.3",
                 handled = true,
                 mechanism = "exception",
                 fingerprint = string.IsNullOrWhiteSpace(fingerprint)
@@ -75,18 +74,6 @@ namespace Updog.Unity
             var firstLine = condition.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)[0];
             var colonIndex = firstLine.IndexOf(':');
             return colonIndex > 0 ? firstLine.Substring(0, colonIndex).Trim() : firstLine.Trim();
-        }
-
-        private static string Hostname()
-        {
-            try
-            {
-                return Dns.GetHostName();
-            }
-            catch
-            {
-                return SystemInfo.deviceName ?? "";
-            }
         }
 
         private static Dictionary<string, object> CopyContext(IDictionary<string, object> context)

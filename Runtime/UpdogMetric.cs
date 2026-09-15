@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Net;
 using System.Text;
 
 namespace Updog.Unity
@@ -42,9 +41,9 @@ namespace Updog.Unity
                 service = config.Service,
                 environment = config.Environment,
                 release = config.Release,
-                hostname = Hostname(),
+                hostname = config.ResolveHostname(),
                 sdk_name = "updog_unity_client",
-                sdk_version = "0.3.0"
+                sdk_version = "0.3.3"
             };
         }
 
@@ -79,18 +78,6 @@ namespace Updog.Unity
             }
 
             return builder.ToString();
-        }
-
-        private static string Hostname()
-        {
-            try
-            {
-                return Dns.GetHostName();
-            }
-            catch
-            {
-                return "";
-            }
         }
 
         private static string Sanitize(string value)

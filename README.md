@@ -14,7 +14,7 @@ Add the package to `Packages/manifest.json`:
 ```json
 {
   "dependencies": {
-    "com.wuzupdog.updog-unity-client": "https://github.com/wuzupdog/updog_unity_client.git"
+    "com.wuzupdog.updog-unity-client": "https://github.com/wuzupdog/updog_unity_client.git#v0.3.3"
   }
 }
 ```
@@ -33,6 +33,7 @@ Updog.Initialize(new UpdogConfig
     Environment = "production",
     Service = "world-server",
     Release = "1.2.3",
+    Hostname = "world-01",
     StatsdEndpoint = "127.0.0.1:8125",
     ContextProvider = () => new Dictionary<string, object>
     {
@@ -49,6 +50,7 @@ Updog.Initialize(new UpdogConfig
 | `Environment` | `UPDOG_ENVIRONMENT` or `production` | Environment name |
 | `Service` | `UPDOG_SERVICE` or `Application.productName` | Service/process name |
 | `Release` | `UPDOG_RELEASE` or `Application.version` | Release/build version |
+| `Hostname` | `UPDOG_HOSTNAME` or system hostname | Hostname attached to error and metric telemetry |
 | `StatsdEndpoint` | `UPDOG_STATSD_ENDPOINT` or disabled | Local Updog host-agent StatsD endpoint |
 | `CaptureUnityLogs` | `true` | Capture `LogType.Error`, `Exception`, and `Assert` |
 | `MaxQueueSize` | `2048` | Maximum pending notices kept in memory |
@@ -68,6 +70,7 @@ The following environment variables are also recognized:
 - `UPDOG_ENVIRONMENT`
 - `UPDOG_SERVICE`
 - `UPDOG_RELEASE`
+- `UPDOG_HOSTNAME`
 - `UPDOG_STATSD_ENDPOINT`
 - `UPDOG_ENABLED=false`
 - `UPDOG_DISABLED=true`

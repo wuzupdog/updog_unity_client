@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using UnityEngine;
 
 namespace Updog.Unity
@@ -11,6 +12,7 @@ namespace Updog.Unity
         public string Environment { get; set; }
         public string Service { get; set; }
         public string Release { get; set; }
+        public string Hostname { get; set; }
         public string StatsdEndpoint { get; set; }
         public bool CaptureUnityLogs { get; set; } = true;
         public int MaxQueueSize { get; set; } = 2048;
@@ -37,6 +39,7 @@ namespace Updog.Unity
             Environment = FirstNonEmpty(Environment, GetEnvironmentVariable("UPDOG_ENVIRONMENT"), Application.isEditor ? "development" : "production");
             Service = FirstNonEmpty(Service, GetEnvironmentVariable("UPDOG_SERVICE"), Application.productName, "unity");
             Release = FirstNonEmpty(Release, GetEnvironmentVariable("UPDOG_RELEASE"), Application.version);
+            Hostname = ResolveHostname();
             StatsdEndpoint = FirstNonEmpty(StatsdEndpoint, GetEnvironmentVariable("UPDOG_STATSD_ENDPOINT"));
             MaxQueueSize = MaxQueueSize > 0 ? MaxQueueSize : 2048;
             MaxQueueBytes = MaxQueueBytes > 0 ? MaxQueueBytes : 8 * 1024 * 1024;
@@ -62,6 +65,11 @@ namespace Updog.Unity
         internal string NormalizedEndpoint()
         {
             return FirstNonEmpty(Endpoint, "https://wuzupdog.com").Trim().TrimEnd('/');
+        }
+
+        internal string ResolveHostname()
+        {
+            return FirstNonEmpty(Hostname, GetEnvironmentVariable("UPDOG_HOSTNAME"), DetectHostname());
         }
 
         private static string FirstNonEmpty(params string[] values)
@@ -124,6 +132,18 @@ namespace Updog.Unity
             catch
             {
                 return null;
+            }
+        }
+
+        private static string DetectHostname()
+        {
+            try
+            {
+                return Dns.GetHostName();
+            }
+            catch
+            {
+                return SystemInfo.deviceName ?? "";
             }
         }
     }

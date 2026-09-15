@@ -22,7 +22,8 @@ namespace Updog.Unity.Tests
             Assert.That(wire, Does.Contain("zone:night_harbor"));
             Assert.That(wire, Does.Contain("service:zone-server"));
             Assert.That(wire, Does.Contain("environment:test"));
-            Assert.That(wire, Does.Contain("sdk_version:0.3.0"));
+            Assert.That(wire, Does.Contain("hostname:app-01"));
+            Assert.That(wire, Does.Contain("sdk_version:0.3.3"));
         }
 
         [Test]
@@ -42,7 +43,8 @@ namespace Updog.Unity.Tests
             {
                 Service = "zone-server",
                 Environment = "test",
-                Release = "test-release"
+                Release = "test-release",
+                Hostname = "app-01"
             };
         }
     }
